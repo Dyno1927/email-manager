@@ -5,11 +5,12 @@ Builds an authorized Gmail v1 service object you can call.
 TODO: fill this in.
 """
 
-# TODO: import the Gmail client builder (googleapiclient.discovery.build)
+from googleapiclient.discovery import Resource
+
 # TODO: import get_credentials from .auth
 
 
-def get_service():
+def get_service() -> Resource:
     """Return an authorized Gmail v1 service.
 
     Steps:

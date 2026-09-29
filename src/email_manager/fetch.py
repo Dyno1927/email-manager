@@ -6,10 +6,12 @@ nothing. Verify it works before it lets it touch anything.
 TODO: fill this in.
 """
 
+from typing import Any
+
 # TODO: import get_service from .gmail
 
 
-def list_recent(max_results=10):
+def list_recent(max_results: int = 10) -> list[dict[str, Any]]:
     """Return metadata for the most recent messages.
 
     Algorithm (see analysis doc §A1 for the full picture):
@@ -32,7 +34,7 @@ def list_recent(max_results=10):
     raise NotImplementedError
 
 
-def main():
+def main() -> None:
     """Print a read-only preview of recent mail. Change nothing.
 
     Read the arg count from sys.argv so you can pass a limit:
@@ -42,7 +44,7 @@ def main():
     HINT: mark unread mail (labelIds containing "UNREAD") with a leading "*".
     """
     # TODO
-    pass
+    raise NotImplementedError
 
 
 if __name__ == "__main__":

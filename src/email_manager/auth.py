@@ -19,7 +19,7 @@ SCOPES = [
 TOKEN = Path("token.json")
 
 
-def get_credentials():
+def get_credentials() -> Credentials:
     """Return valid credentials, doing the least work needed to get them.
 
     The mental model (three states):
