@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -9,7 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 #                  It does NOT allow permanent delete — we don't want that.
 #   gmail.labels -> create/manage our own labels.
 # A scope you don't request, you don't get. Don't add extras.
-SCOPES = [
+SCOPES: list[str] = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.labels",
 ]
@@ -29,7 +30,7 @@ def get_credentials() -> Credentials:
       - Both are cached in TOKEN. Our job is to always return a valid
         day pass, taking the cheapest route.
     """
-    creds = None
+    creds: Credentials | None = None
 
     # 1. If we already have a token file, load creds from it.
     if TOKEN.exists():
@@ -47,7 +48,11 @@ def get_credentials() -> Credentials:
         #     Only happens the first time (or after a refresh token dies).
         else:
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
+            # Google's type hint for run_local_server is a union (it also
+            # handles external-account flows), but a desktop installed app
+            # always gets plain oauth2 Credentials back. cast() just tells
+            # the type checker that — it changes nothing at runtime.
+            creds = cast(Credentials, flow.run_local_server(port=0))
 
         # 4. Persist whichever creds we ended up with, so next run starts
         #    from the cache. (MUST write both tokens, not just access.)
