@@ -12,7 +12,3 @@ wheels/
 # secrets — never commit
 credentials.json
 token.json
-
-# secrets — never commit
-credentials.json
-token.json
