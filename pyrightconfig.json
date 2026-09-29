@@ -1,0 +1,7 @@
+{
+  "include": ["src"],
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownArgumentType": "none"
+}
