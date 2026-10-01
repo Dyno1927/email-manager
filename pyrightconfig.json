@@ -3,5 +3,6 @@
   "typeCheckingMode": "strict",
   "reportMissingTypeStubs": "none",
   "reportUnknownMemberType": "none",
-  "reportUnknownArgumentType": "none"
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none"
 }

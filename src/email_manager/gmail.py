@@ -5,9 +5,10 @@ Builds an authorized Gmail v1 service object you can call.
 TODO: fill this in.
 """
 
-from googleapiclient.discovery import Resource
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import Resource, build
 
-# TODO: import get_credentials from .auth
+from .auth import get_credentials
 
 
 def get_service() -> Resource:
@@ -21,5 +22,8 @@ def get_service() -> Resource:
     HINT: the builder takes a service name ("gmail"), a version ("v1"),
     and the credentials.
     """
-    # TODO
-    raise NotImplementedError
+
+    creds: Credentials = get_credentials()
+    service: Resource = build(serviceName="gmail", version="v1", credentials=creds)
+
+    return service
