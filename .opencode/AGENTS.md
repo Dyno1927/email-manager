@@ -2,8 +2,11 @@
 
 My autonomous Gmail triage tool: sorts, labels, archives, summarizes my mail
 without me supervising it. Full decision writeup lives at
-`~/Documents/email-manager-analysis.md` — read that before relitigating any
-architecture choice.
+`Docs/email-manager-analysis.md` **in this repo** (tracked in git — read that
+before relitigating any architecture choice).
+
+Note: this used to say `~/Documents/email-manager-analysis.md`. That path no
+longer exists; the doc moved into `Docs/`.
 
 ## Voice
 First person ("I", "my"), like my other repos.
@@ -98,8 +101,23 @@ Decided against for now: PyTorch fine-tuning, Gemini API (free tier may use my
 mail to improve Google products), IMAP. All are documented escape hatches.
 
 ## Gate commands
-- Auth: `uv run python -m email_manager.auth`
-- (add lint / test commands here once they exist)
+- Auth: `uv run python -m email_manager.auth` → must print `refresh_token: OK`
+- Fetch: `uv run python -m email_manager.fetch 8` → **not yet passable**, still a stub
+- Lint/format/types: `uv run ruff check src && uv run ruff format --check src && uv run pyright`
+  (no tests yet — when they exist, add them here)
+
+## Commit workflow
+- Edit loop: `uv run ruff check --fix src && uv run ruff format src` (these *write*)
+- Then `git add -A && git commit -m "type(scope): description"`
+- Message style in use: `add(x): ...`, `docs(memory): ...`, `fix(...)`.
+- **A pre-commit hook exists** at `.git/hooks/pre-commit` — runs ruff check,
+  ruff format --check, and pyright, and blocks the commit on failure. It *checks*,
+  it never rewrites, so the fix commands above still have to run first.
+  - Verified working both ways on 2026-10-01: clean tree exits 0, four injected
+    ruff errors printed with line numbers and exited 1.
+  - Needs `chmod +x` or git silently skips it.
+  - **`.git/` is not tracked by git**, so this hook exists only on this machine.
+    A fresh clone will not have it. Recreate or copy it over if that bites.
 
 ## Safety rules for the tool itself (non-negotiable)
 Dry-run mode first. Log every decision with its reason. Auto-archive only, never
