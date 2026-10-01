@@ -33,6 +33,12 @@ setup is fine; the rest is mine.
 this same folder", and write imports out in full (`from email_manager.auth import
 get_credentials`) when showing examples.
 
+**Running the modules:** always `-m`, never a file path —
+`uv run python -m email_manager.fetch`, not `uv run python src/email_manager/fetch.py`.
+A file path leaves Python with no package context, so sibling imports fail with
+`ImportError: attempted relative import with no known parent package`. `auth.py`
+appears to work that way only because it imports nothing from the package.
+
 ## Current phase (as of 2026-10-01)
 - Repo on `main`, Python 3.12, deps installed, `credentials.json` down, gitignored. ✓
 - **No stubs left.** All three modules written, all gates green:
@@ -43,10 +49,10 @@ get_credentials`) when showing examples.
   - `fetch.py` — `list_recent()` + `main()`. **Written by opencode at khanishk's
     explicit request**, which overrode the teach-don't-write rule for this file only.
     Read-only by design: lists recent mail, changes nothing.
-- NEXT (khanishk's call, nothing chosen yet): the sync cursor the module docstring
-  promises (`historyId` persistence) is **not** built yet. `list_recent()` re-lists
-  from scratch every run — no dedup across runs. Layer 0 (server-side filters) is
-  the documented next layer, and per the build order it precedes the classifier.
+- NEXT (khanishk's call): he has been offered, and has deferred, three options —
+  Layer 0 server-side filters, the Layer 1 sync cursor, or the first write via
+  `modify()`. He picked `modify()`, then immediately reframed it as a Gemini-based
+  classifier. See "PENDING DECISION" below. Nothing built yet; `config/` still empty.
 - Gate: `uv run python -m email_manager.auth` (must print `refresh_token: OK`) and
   `uv run python -m email_manager.fetch N` (default 10). Both verified working
   against the live mailbox on 2026-10-01.
@@ -134,8 +140,40 @@ Don't re-derive these; they're facts about the live API, not guesses.
 - **Layer 3** — local Ollama 3–4B model, only for the low-confidence leftovers.
 - **Layer 4** — weekly embeddings + HDBSCAN to discover new rule candidates.
 
-Decided against for now: PyTorch fine-tuning, Gemini API (free tier may use my
-mail to improve Google products), IMAP. All are documented escape hatches.
+## PENDING DECISION — Gemini classifier (raised 2026-10-01, nothing built)
+khanishk proposed **replacing Layer 2/3 with the Gemini API**: send each email,
+ask where it belongs, apply the label, star if important, auto-trash junk.
+**No code written. No API key set** (nothing in env, `config/` is empty).
+He asked me to save this rather than start, so this is a parked design question.
+
+If he confirms it, these are the open questions I raised and he has NOT yet answered:
+1. **Paid or free tier?** Free tier's published pricing has a row called *"Used to
+   improve our products" = Yes*, so his mail may train Google products and be read
+   by human reviewers (his own analysis doc §B6, which is why Gemini was ruled out).
+   Paid = Zero Data Retention, but needs Prepay min $5 top-up, and Gemini API spend
+   has been excluded from GCP free credits since March 2026.
+2. **Does trash stay supervised?** He asked for auto-trash unattended. I pushed back:
+   that's the exact failure mode his own safety rules exist to prevent.
+3. Answer to my sequencing: **classify read-only → show the plan → approve →
+   apply.** Never classify and write in the same pass. He has not objected.
+
+Things I verified while discussing it (reusable):
+- `modify()` is `POST gmail/v1/users/{userId}/messages/{id}/modify`, body keys
+  `addLabelIds` / `removeLabelIds` (plus two `addClassification*` keys). 100 labels
+  max per call. Cost: **5 units**. `batchModify` is 50 units for many at once.
+- **Archive == `removeLabelIds: ["INBOX"]`** — reversible by re-adding INBOX. This is
+  the cheapest safe first write.
+- Live mailbox system labels: `CHAT SENT INBOX IMPORTANT TRASH DRAFT SPAM
+  CATEGORY_FORUMS CATEGORY_UPDATES CATEGORY_PERSONAL CATEGORY_PROMOTIONS
+  CATEGORY_SOCIAL YELLOW_STAR STARRED UNREAD`.
+- **Do NOT ask the LLM "is this important"** — Gmail already computes `IMPORTANT`
+  and puts it in `labelIds`. Free and more reliable. Let the model handle only
+  user-defined labels.
+- `YELLOW_STAR` and `STARRED` are both real labels, so starring is expressible.
+  Note `STARRED` is also a boolean field on the message, distinct from `labelIds`.
+
+Still unwritten, deliberately: kill switch + dry-run wrapper (`config/` is empty),
+sync cursor. These were agreed as prerequisites for any write path.
 
 ## Gate commands
 - Auth: `uv run python -m email_manager.auth` → must print `refresh_token: OK`
