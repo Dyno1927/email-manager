@@ -35,13 +35,21 @@ get_credentials`) when showing examples.
 - `src/email_manager/auth.py` is **done and working** — full OAuth desktop-app flow,
   three-state credential handling (cached / refresh / re-consent), token persisted to
   `token.json` (gitignored). Access token + refresh token confirmed.
-- `gmail.py` and `fetch.py` are **stubs** (TODO + `raise NotImplementedError`),
-  created with opencode, deliberately left for me to fill.
-- Build order: `gmail.py` → `fetch.py`. fetch.py depends on gmail.py, so gmail first.
-- NEXT: write `get_service()` in `gmail.py`. Three steps: call `get_credentials()`,
-  hand it to Google's service builder with `"gmail"`/`"v1"`, return the result.
+- `gmail.py` is **done and green** — `get_service()` builds the Gmail v1 handle via
+  `build("gmail", "v1", credentials=creds)`. All three gates pass.
+- `fetch.py` is the **only remaining stub** (TODO + `raise NotImplementedError`).
+- NEXT: `fetch.py` — `list_recent()` then `main()`.
 - Gate: `uv run python -m email_manager.auth` then `uv run python -m email_manager.fetch N`
 - Check: `uv run ruff check src && uv run ruff format src && uv run pyright`
+  - **pyright was installed into the `dev` group on 2026-10-01.** It had never been
+    installed, so that gate command was failing before this. Don't assume it's there.
+  - `pyrightconfig.json` sets `reportUnknownVariableType: none` alongside the other
+    three Unknown reports — Google's API libs ship no type info, so `build()` resolves
+    to `Unknown` and strict mode flags it. Not a code defect.
+  - **Trap that cost me a wrong suggestion:** `Resource.get_service()` does not exist.
+    `Resource` is a type used for the *return annotation* only; the builder is the
+    separate module-level function `build` from `googleapiclient.discovery`. Verified:
+    `Resource` has exactly one member, `close()`.
 - OAuth consent screen must be set to "In production" or the refresh token dies
   every 7 days. Token currently good, but verify `refresh_token: OK` before trusting
   any unattended run.
