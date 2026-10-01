@@ -11,14 +11,14 @@ the Gmail API, OAuth, and a bit of ML, not to ship a product.
 
 - [x] OAuth2 login (my own Google account, desktop client, refresh tokens)
 - [x] Gmail API service wrapper (authorized Gmail v1 client)
-- [ ] Layer 1 — read-only fetch loop that lists new mail and changes nothing
+- [x] Layer 1 — read-only fetch loop that lists new mail and changes nothing
 - [ ] Layer 0 — Gmail's built-in filters (server-side, no code running)
 - [ ] Classifier — TF-IDF + LinearSVC to sort mail
 - [ ] Local LLM (Ollama) for anything the classifier isn't sure about
 - [ ] Weekly clustering to discover categories I didn't think of
 
-Auth and the service wrapper both work end to end. The fetch loop is the next
-piece and it's still a stub I'm writing by hand.
+Auth, the service wrapper, and a read-only fetch preview all work end to end.
+Nothing that writes to the mailbox exists yet, by design.
 
 ## How it works (the plan)
 
@@ -73,13 +73,25 @@ It should print `refresh_token: OK`. If it says `MISSING`, revoke the app at
 
 After that, credentials refresh themselves silently.
 
+Preview recent mail — read-only, changes nothing:
+
+```sh
+uv run python -m email_manager.fetch   # default 10
+uv run python -m email_manager.fetch 5
+```
+
+Output is one line per message, with `*` marking unread:
+
+```
+* noreply@github.com — [GitHub] Claude is requesting updated permissions
+```
+
 ## Dev
 
 ```sh
-uv run python -m email_manager.fetch 8   # read-only preview (stub for now)
-uv run ruff check src/
-uv run ruff format src/
-uv run pyright
+uv run ruff check --fix src/   # lint, apply safe fixes
+uv run ruff format src/        # format
+uv run pyright                 # types
 ```
 
 There's a git pre-commit hook that runs all three checks and refuses the commit
@@ -90,9 +102,9 @@ which git doesn't track — on a fresh clone you'll need to recreate it.
 
 ```
 src/email_manager/
-  auth.py    # OAuth + token refresh (done)
-  gmail.py   # Gmail service wrapper (done)
-  fetch.py   # read-only fetch + preview (stub)
+  auth.py    # OAuth + token refresh
+  gmail.py   # Gmail service wrapper
+  fetch.py   # read-only fetch + preview
 Docs/
   email-manager-analysis.md   # the full design writeup
 ```

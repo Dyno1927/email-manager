@@ -35,20 +35,31 @@ get_credentials`) when showing examples.
 
 ## Current phase (as of 2026-10-01)
 - Repo on `main`, Python 3.12, deps installed, `credentials.json` down, gitignored. ✓
-- `src/email_manager/auth.py` is **done and working** — full OAuth desktop-app flow,
-  three-state credential handling (cached / refresh / re-consent), token persisted to
-  `token.json` (gitignored). Access token + refresh token confirmed.
-- `gmail.py` is **done and green** — `get_service()` builds the Gmail v1 handle via
-  `build("gmail", "v1", credentials=creds)`. All three gates pass.
-- `fetch.py` is the **only remaining stub** (TODO + `raise NotImplementedError`).
-- NEXT: `fetch.py` — `list_recent()` then `main()`.
-- Gate: `uv run python -m email_manager.auth` then `uv run python -m email_manager.fetch N`
+- **No stubs left.** All three modules written, all gates green:
+  - `auth.py` — OAuth desktop-app flow, three-state credential handling
+    (cached / refresh / re-consent), token persisted to `token.json` (gitignored).
+  - `gmail.py` — `get_service()` builds the Gmail v1 handle via
+    `build("gmail", "v1", credentials=creds)`.
+  - `fetch.py` — `list_recent()` + `main()`. **Written by opencode at khanishk's
+    explicit request**, which overrode the teach-don't-write rule for this file only.
+    Read-only by design: lists recent mail, changes nothing.
+- NEXT (khanishk's call, nothing chosen yet): the sync cursor the module docstring
+  promises (`historyId` persistence) is **not** built yet. `list_recent()` re-lists
+  from scratch every run — no dedup across runs. Layer 0 (server-side filters) is
+  the documented next layer, and per the build order it precedes the classifier.
+- Gate: `uv run python -m email_manager.auth` (must print `refresh_token: OK`) and
+  `uv run python -m email_manager.fetch N` (default 10). Both verified working
+  against the live mailbox on 2026-10-01.
 - Check: `uv run ruff check src && uv run ruff format src && uv run pyright`
   - **pyright was installed into the `dev` group on 2026-10-01.** It had never been
     installed, so that gate command was failing before this. Don't assume it's there.
   - `pyrightconfig.json` sets `reportUnknownVariableType: none` alongside the other
     three Unknown reports — Google's API libs ship no type info, so `build()` resolves
     to `Unknown` and strict mode flags it. Not a code defect.
+  - `fetch.py` needs a **local** `# type: ignore[reportAttributeAccessIssue]` on the
+    `service.users()` chain. Chaining off the service object is invisible to pyright.
+    Keep it local — relaxing `reportAttributeAccessIssue` in the config would hide
+    genuine attribute errors everywhere else.
   - **Trap that cost me a wrong suggestion:** `Resource.get_service()` does not exist.
     `Resource` is a type used for the *return annotation* only; the builder is the
     separate module-level function `build` from `googleapiclient.discovery`. Verified:
@@ -56,6 +67,29 @@ get_credentials`) when showing examples.
 - OAuth consent screen must be set to "In production" or the refresh token dies
   every 7 days. Token currently good, but verify `refresh_token: OK` before trusting
   any unattended run.
+
+## Gmail API shapes I verified by running them (2026-10-01)
+Don't re-derive these; they're facts about the live API, not guesses.
+- **Nothing happens until `.execute()`.** Every method on the service object returns
+  an `HttpRequest`, not data. Forget it and you get
+  `AttributeError: 'HttpRequest' object has no attribute 'keys'` — I hit this myself.
+- Chain: `service.users().messages().list(userId="me", maxResults=N).execute()`.
+  `userId="me"` = the account that authorized the token. `messages()` exposes
+  `list, get, modify, trash, batchModify, batchDelete, insert, import_`.
+- `list()` returns a **dict** with keys `messages`, `nextPageToken`,
+  `resultSizeEstimate`. Each entry has only `id` and `threadId` — **no sender,
+  no subject.** That's why a second `get()` call per message is required.
+- `get(id=..., format="metadata")` returns `id`, `threadId`, `labelIds`, `snippet`,
+  `payload`, `sizeEstimate`, `historyId`, `internalDate`.
+- `payload` holds `mimeType` and `headers`. **`headers` is a flat LIST of
+  `{"name":..., "value":...}` dicts (29 on a real message), not a dict** — you cannot
+  do `headers["From"]`. Fold it into a dict first.
+  Real first entries are mail-server plumbing: `Delivered-To`, `Received`, `X-Received`,
+  `ARC-Seal`. **`From` and `Subject` sit far down the list — never assume index 0.**
+- `labelIds` came back as `['UNREAD', 'IMPORTANT', 'CATEGORY_UPDATES', 'INBOX']`.
+- Real quota cost of `list_recent(N)`: 5 units for `list` + 20 per `get`, so
+  5 + 20N. Ten messages = 205 units against the 6,000/min ceiling. A full-mailbox
+  backfill would blow through it, which is why throttling is still outstanding.
 
 ## Access-layer decisions (settled — don't relitigate)
 - Gmail API v1, OAuth **desktop-app** client. Scopes: `gmail.modify` + `gmail.labels`.
@@ -90,8 +124,11 @@ get_credentials`) when showing examples.
 
 ## Architecture (build in this order)
 - **Layer 0** — Gmail built-in filters via `settings.filters`. Server-side, free,
-  instant, zero CPU, never breaks.
+  instant, zero CPU, never breaks. **Not started.**
 - **Layer 1** — fetch + sync loop over the Gmail API. Metadata first, bodies last.
+  Half done: read-only listing works, the *sync cursor* half (persisting `historyId`
+  so reruns don't refetch everything) is not built. Note Layer 0 is listed first
+  because it does the same job for free — khanishk may want it before going further.
 - **Layer 2** — classifier: **TF-IDF + LinearSVC**, retrains in seconds. NOT
   PyTorch — that's overkill for this.
 - **Layer 3** — local Ollama 3–4B model, only for the low-confidence leftovers.
@@ -102,7 +139,7 @@ mail to improve Google products), IMAP. All are documented escape hatches.
 
 ## Gate commands
 - Auth: `uv run python -m email_manager.auth` → must print `refresh_token: OK`
-- Fetch: `uv run python -m email_manager.fetch 8` → **not yet passable**, still a stub
+- Fetch: `uv run python -m email_manager.fetch 8` → read-only preview, live-verified ✓
 - Lint/format/types: `uv run ruff check src && uv run ruff format --check src && uv run pyright`
   (no tests yet — when they exist, add them here)
 
