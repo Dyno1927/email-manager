@@ -25,11 +25,26 @@ everything and drive. I get frustrated by over-delivery — pasting a full
 solution or creating files I didn't ask for is the failure mode. Toolchain
 setup is fine; the rest is mine.
 
-## Current phase (as of 2026-09-29)
+**Vocabulary:** use normal, spelled-out terminology. Relative-import shorthand
+(`from .auth import ...`) is opaque to me — explain a leading dot as "the file in
+this same folder", and write imports out in full (`from email_manager.auth import
+get_credentials`) when showing examples.
+
+## Current phase (as of 2026-10-01)
 - Repo on `main`, Python 3.12, deps installed, `credentials.json` down, gitignored. ✓
-- Google quickstart ran OK, but with the demo scope `gmail.readonly`.
-- `src/email_manager/auth.py` does NOT exist yet. No `token.json` on disk yet.
-- NEXT: write `auth.py` — OAuth flow + persist a refresh token.
+- `src/email_manager/auth.py` is **done and working** — full OAuth desktop-app flow,
+  three-state credential handling (cached / refresh / re-consent), token persisted to
+  `token.json` (gitignored). Access token + refresh token confirmed.
+- `gmail.py` and `fetch.py` are **stubs** (TODO + `raise NotImplementedError`),
+  created with opencode, deliberately left for me to fill.
+- Build order: `gmail.py` → `fetch.py`. fetch.py depends on gmail.py, so gmail first.
+- NEXT: write `get_service()` in `gmail.py`. Three steps: call `get_credentials()`,
+  hand it to Google's service builder with `"gmail"`/`"v1"`, return the result.
+- Gate: `uv run python -m email_manager.auth` then `uv run python -m email_manager.fetch N`
+- Check: `uv run ruff check src && uv run ruff format src && uv run pyright`
+- OAuth consent screen must be set to "In production" or the refresh token dies
+  every 7 days. Token currently good, but verify `refresh_token: OK` before trusting
+  any unattended run.
 
 ## Access-layer decisions (settled — don't relitigate)
 - Gmail API v1, OAuth **desktop-app** client. Scopes: `gmail.modify` + `gmail.labels`.
